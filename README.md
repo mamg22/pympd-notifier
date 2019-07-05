@@ -22,4 +22,4 @@ pympd-notify only requires:
 
 Because I have a keybind in the i3 window manager to show me my current song in mpd, but it was just showing the output of `mpc`, which looked horrible. 
 
-So with a few lines, I got something that looks good and has the posibility of doing a lot more.
+So with a few lines, I got something that looks good and has the possibility of doing a lot more.
