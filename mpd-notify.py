@@ -52,7 +52,6 @@ def main():
     # Get current song and state
     current = client.currentsong()
     state = client.status()
-    print(state)
 
     progress = ""
     if state['state'] != "stop":
