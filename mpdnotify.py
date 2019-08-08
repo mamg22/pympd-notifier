@@ -36,18 +36,12 @@ def format_state_ncmpcpp(state):
     out += ']'
     return out
         
-def extract_info(current_song, state):
-    def get_info(source, name):
-        try: 
-            return source["name"]
-        except:
-            return ""
-
+def extract_vars(current_song, state):
     info = {}
-    info["artist"] = get_info(current_song, "artist")
-    info["title"]  = get_info(current_song, "title")
-    info["filename"] = get_info(current_song, "file")
-    volume = get_info(state, "volume") + "%"
+    info["artist"] = current_song.get("artist", "")
+    info["title"]  = current_song.get("title", "")
+    info["filename"] = current_song.get("file", "")
+    volume = state.get("volume", "") + "%"
     if volume == "-1%":
         # mpd is stopped
         volume = "N/A"
@@ -55,33 +49,61 @@ def extract_info(current_song, state):
     info["state_ncmpcpp"] = format_state_ncmpcpp(state)
     # these keys don't exist when the player is stopped
     if state['state'] != "stop":
-        info["elapsed"] = format_time(get_info(state, "elapsed"))
-        info["duration"] = format_time(get_info(state, "duration"))
+        info["elapsed"] = format_time(state.get("elapsed", ""))
+        info["duration"] = format_time(state.get("duration", ""))
     return info
     
 def parse_fmt_str(fmt_str, information):
+    # format: $function{argument}
+    # ${} is an alias for $expand{}
+    # TODO: Wrap this in an object, so it can have a mapping of functions (maybe)
     out = ""
     mode = "normal"
-    expand_str = ""
+    function_name = ""
+    argument = ""
+    previous_char = ""
+    brace_count = 0
     for char in fmt_str:
         if mode == "normal" and char == "$":
-            mode = "expand"
-        # Variables are only [a-zA-Z0-9_]
-        elif mode == "expand" and char in string.ascii_letters + string.digits + "_":
-            expand_str += char
-        elif mode == "expand" and expand_str == "" and char == "$":
-            out += "$"
-            mode = "normal"
-        elif mode == "expand":
-            try:
-                out += information[expand_str]
+            mode = "read_name"
+        elif mode == "read_name":
+            if char in string.ascii_letters + string.digits + "_":
+                # Variables are only [a-zA-Z0-9_]
+                function_name += char
+            elif char == "{":
+                mode = "read_arg"
+                brace_count = 1
+            elif function_name == "" and char == "$":
+                # "$$" becomes "$"
+                out += "$"
+                mode = "normal"
+            else:
                 out += char
-            except:
-                pass
-            expand_str = ""
-            mode = "normal"
+                function_name = ""
+                mode = "normal"
+        elif mode == "read_arg":
+            if char == "}" and brace_count == 1:
+                if function_name == "":
+                    try:
+                        out += information[argument]
+                    except:
+                        pass
+                else:
+                    out += actions[function_name](argument)
+                mode = "normal"
+                function_name = ""
+                argument = ""
+            elif char == "}" and brace_count > 1:
+                brace_count -= 1
+            elif previous_char == "$" and char == "{":
+                brace_count += 1
+            else:
+                argument += char
+
+
         else:
             out += char
+        previous_char = char
     return out
 
 def main():
@@ -99,26 +121,13 @@ def main():
     current = client.currentsong()
     state = client.status()
 
-    progress = ""
-    if state['state'] != "stop":
-        progress = "<b>" + format_time(state['elapsed']) + "/" + format_time(state['duration']) + "</b>\n"
+    format_str = "<b>${title}</b>\n" \
+                 "<i>${artist}</i>\n" \
+                 "<b>${elapsed}/${duration} </b>\n" \
+                 "Vol: ${volume}\n" \
+                 "${state_ncmpcpp}"
 
-    volume = state['volume'] + "%" if state['volume'] != "-1" else "N/A"
-
-    # Build the output
-#    mpdinfo = f"<b>{current['title']}</b>\n" \
-#              f"<i>{current['artist']}</i>\n" \
-#              f"{progress}" \
-#              f"Vol: {volume}\n" \
-#              f"{format_state_ncmpcpp(state)}"
-
-    format_str = "<b>$title</b>\n" \
-                 "<i>$artist</i>\n" \
-                 "$elapsed/$duration\n" \
-                 "Vol: $volume\n" \
-                 "$state_ncmpcpp"
-
-    info = extract_info(current, state)
+    info = extract_vars(current, state)
 
     mpdinfo = parse_fmt_str(format_str, info)
 
