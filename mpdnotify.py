@@ -62,6 +62,7 @@ def parse_fmt_str(fmt_str, information):
     function_name = ""
     argument = ""
     escape = False
+    actions = {}
     for char in fmt_str:
         if not escape and char == "\\":
             escape = True
@@ -101,6 +102,7 @@ def parse_fmt_str(fmt_str, information):
                 escape = False
         else:
             out += char
+            escape = False
     return out
 
 def main():
