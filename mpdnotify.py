@@ -61,28 +61,31 @@ def parse_fmt_str(fmt_str, information):
     mode = "normal"
     function_name = ""
     argument = ""
-    previous_char = ""
-    brace_count = 0
+    escape = False
     for char in fmt_str:
-        if mode == "normal" and char == "$":
-            mode = "read_name"
+        if not escape and char == "\\":
+            escape = True
+        elif escape and char == "\\":
+            escape = False
+            out += "\\"
+        elif mode == "normal" and char == "$":
+            if not escape:
+                mode = "read_name"
+            else:
+                out += "$"
+                escape = False
         elif mode == "read_name":
             if char in string.ascii_letters + string.digits + "_":
-                # Variables are only [a-zA-Z0-9_]
+                # Fuction names are only [a-zA-Z0-9_]
                 function_name += char
             elif char == "{":
                 mode = "read_arg"
-                brace_count = 1
-            elif function_name == "" and char == "$":
-                # "$$" becomes "$"
-                out += "$"
-                mode = "normal"
             else:
                 out += char
                 function_name = ""
                 mode = "normal"
         elif mode == "read_arg":
-            if char == "}" and brace_count == 1:
+            if char == "}" and not escape:
                 if function_name == "":
                     try:
                         out += information[argument]
@@ -93,17 +96,11 @@ def parse_fmt_str(fmt_str, information):
                 mode = "normal"
                 function_name = ""
                 argument = ""
-            elif char == "}" and brace_count > 1:
-                brace_count -= 1
-            elif previous_char == "$" and char == "{":
-                brace_count += 1
             else:
                 argument += char
-
-
+                escape = False
         else:
             out += char
-        previous_char = char
     return out
 
 def main():
@@ -123,7 +120,7 @@ def main():
 
     format_str = "<b>${title}</b>\n" \
                  "<i>${artist}</i>\n" \
-                 "<b>${elapsed}/${duration} </b>\n" \
+                 "<b>${elapsed}/${duration}</b>\n" \
                  "Vol: ${volume}\n" \
                  "${state_ncmpcpp}"
 
