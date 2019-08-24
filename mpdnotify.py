@@ -52,6 +52,12 @@ def extract_vars(current_song, state):
         info["elapsed"] = format_time(state.get("elapsed", ""))
         info["duration"] = format_time(state.get("duration", ""))
     return info
+
+def expand(argument, information):
+    return information.get(argument, "")
+
+def echo(argument, information):
+    return argument
     
 def parse_fmt_str(fmt_str, information):
     # format: $function{argument}
@@ -62,7 +68,11 @@ def parse_fmt_str(fmt_str, information):
     function_name = ""
     argument = ""
     escape = False
-    actions = {}
+    actions = {
+        "": expand,
+        "expand": expand,
+        "echo": echo,
+        }
     for char in fmt_str:
         if not escape and char == "\\":
             escape = True
@@ -82,18 +92,12 @@ def parse_fmt_str(fmt_str, information):
             elif char == "{":
                 mode = "read_arg"
             else:
-                out += char
+                out += "$" + function_name + char
                 function_name = ""
                 mode = "normal"
         elif mode == "read_arg":
             if char == "}" and not escape:
-                if function_name == "":
-                    try:
-                        out += information[argument]
-                    except:
-                        pass
-                else:
-                    out += actions[function_name](argument)
+                out += actions[function_name](argument, information)
                 mode = "normal"
                 function_name = ""
                 argument = ""
@@ -124,7 +128,7 @@ def main():
                  "<i>${artist}</i>\n" \
                  "<b>${elapsed}/${duration}</b>\n" \
                  "Vol: ${volume}\n" \
-                 "${state_ncmpcpp}"
+                 "$expand{state_ncmpcpp}"
 
     info = extract_vars(current, state)
 
