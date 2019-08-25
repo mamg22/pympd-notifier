@@ -56,22 +56,18 @@ def extract_vars(current_song, state):
 def expand(argument, information):
     return information.get(argument, "")
 
-def echo(argument, information):
-    return argument
-    
 def parse_fmt_str(fmt_str, information):
     # format: $function{argument}
     # ${} is an alias for $expand{}
     # TODO: Wrap this in an object, so it can have a mapping of functions (maybe)
     out = ""
     mode = "normal"
-    function_name = ""
-    argument = ""
+    name = "" # Variable or function name
+    argument = "" # function argument
     escape = False
-    actions = {
+    functions = {
         "": expand,
         "expand": expand,
-        "echo": echo,
         }
     for char in fmt_str:
         if not escape and char == "\\":
@@ -87,19 +83,19 @@ def parse_fmt_str(fmt_str, information):
                 escape = False
         elif mode == "read_name":
             if char in string.ascii_letters + string.digits + "_":
-                # Fuction names are only [a-zA-Z0-9_]
-                function_name += char
+                # Names are only [a-zA-Z0-9_]
+                name += char
             elif char == "{":
                 mode = "read_arg"
             else:
-                out += "$" + function_name + char
-                function_name = ""
+                out += expand(name, information) + char
+                name = ""
                 mode = "normal"
         elif mode == "read_arg":
             if char == "}" and not escape:
-                out += actions[function_name](argument, information)
+                out += functions[name](argument, information)
                 mode = "normal"
-                function_name = ""
+                name = ""
                 argument = ""
             else:
                 argument += char
@@ -124,9 +120,9 @@ def main():
     current = client.currentsong()
     state = client.status()
 
-    format_str = "<b>${title}</b>\n" \
-                 "<i>${artist}</i>\n" \
-                 "<b>${elapsed}/${duration}</b>\n" \
+    format_str = "<b>$title</b>\n" \
+                 "<i>$artist</i>\n" \
+                 "<b>$elapsed/$duration</b>\n" \
                  "Vol: ${volume}\n" \
                  "$expand{state_ncmpcpp}"
 
