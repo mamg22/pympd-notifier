@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 
 import string 
+from os.path import expanduser
 
 import mpd
 import notify2
+import toml
 
 # Convert floating point strings to HH:MM:SS time
 def format_time(seconds):
@@ -110,21 +112,21 @@ def main():
     notify2.init("pympd-notify")
     notification = notify2.Notification("Python MPD notifier")
 
+    # Load config
+    with open(expanduser("~/.config/mpdnotify/config.toml") as config_file:
+        config = toml.load(config_file)
+
     # Connect to mpd
     client = mpd.MPDClient()
     client.timeout = 10
     client.idletimeout = None
-    client.connect("localhost", 6600)
+    client.connect(config["mpd"]["host"], config["mpd"]["port"])
 
     # Get current song and state
     current = client.currentsong()
     state = client.status()
 
-    format_str = "<b>$title</b>\n" \
-                 "<i>$artist</i>\n" \
-                 "<b>$elapsed/$duration</b>\n" \
-                 "Vol: ${volume}\n" \
-                 "$expand{state_ncmpcpp}"
+    format_str = config["format_str"]
 
     info = extract_vars(current, state)
 
