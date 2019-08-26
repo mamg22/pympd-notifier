@@ -1,0 +1,10 @@
+format_str = """
+<b>$title</b>
+<i>$artist</i>
+<b>$elapsed/$duration</b>
+Vol: ${volume}
+$expand{state_ncmpcpp}"""
+
+[mpd]
+host="localhost"
+port=6600
