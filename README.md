@@ -16,6 +16,7 @@ pympd-status only requires:
 
 * python-mpd2
 * notify2
+* dbus-python
 * toml
 
 ## Usage
