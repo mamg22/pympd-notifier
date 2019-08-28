@@ -9,7 +9,11 @@ import toml
 
 # Convert floating point strings to HH:MM:SS time
 def format_time(seconds):
-    secs = float(seconds)
+    try:
+        secs = float(seconds)
+    except:
+        # Not valid time
+        return ""
     # Clamp the numbers into the correct ranges
     hours = round(secs // 3600)
     minutes = round((secs // 60) % 60)
@@ -24,39 +28,70 @@ def format_time(seconds):
         out = f"{minutes}:" + out
     return out
 
-# Generate a ncmpcpp-like state list
-def format_state_ncmpcpp(state):
-    # Add the state flag symbol or a dash
-    def add_or_dash(state, char):
-        return char if bool(int(state)) else '- '
-    out = '[ '
-    out += add_or_dash(state["repeat"], 'r ')
-    out += add_or_dash(state["random"], 'z ')
-    out += add_or_dash(state["single"], 's ')
-    out += add_or_dash(state["consume"], 'c ')
-    out += add_or_dash(state["xfade"], 'x ')
-    out += ']'
-    return out
-        
-def extract_vars(current_song, state):
+def extract_info(current_song, state):
     info = {}
+    # Song metadata
     info["artist"] = current_song.get("artist", "")
     info["title"]  = current_song.get("title", "")
+    info["album_artist"] = current_song.get("albumartist", "")
+    info["album"] = current_song.get("album", "")
+    info["date"] = current_song.get("date", "")
+    info["genre"] = current_song.get("genre", "")
+    info["composer"] = current_song.get("composer", "")
+    info["track"] = current_song.get("track", "")
+    info["disc"] = current_song.get("disc", "")
+
+    # The filename
     info["filename"] = current_song.get("file", "")
+
+    # Song status
+    info["elapsed"] = format_time(state.get("elapsed", ""))
+    info["duration"] = format_time(state.get("duration", ""))
+
+    # Playlist status
+    info["song"] = state.get("song", "")
+    info["playlist_length"] = state.get("playlistlength", "")
+
+    # Player status
     volume = state.get("volume", "") + "%"
     if volume == "-1%":
         # mpd is stopped
         volume = "N/A"
     info["volume"] = volume
-    info["state_ncmpcpp"] = format_state_ncmpcpp(state)
-    # these keys don't exist when the player is stopped
-    if state['state'] != "stop":
-        info["elapsed"] = format_time(state.get("elapsed", ""))
-        info["duration"] = format_time(state.get("duration", ""))
+
+    info["state"] = state.get("state", "")
+
+    info["repeat"] = state.get("repeat", "")
+    info["random"] = state.get("random", "")
+    info["single"] = state.get("single", "")
+    info["consume"] = state.get("consume", "")
+    info["xfade"] = state.get("xfade", "0")
+
+    info["updating_db"] = state.get("updating_db", "0")
+    if info["updating_db"] != "0":
+        info["updating_db"] = "1"
+
+    # TODO? Use the the nextsong state key to provide info about the next song
+
     return info
 
 def expand(argument, information):
     return information.get(argument, "")
+
+def format_state_ncmpcpp(argument, information):
+    out = "[ "
+    flags = [ ("repeat",  "r "),
+              ("random",  "z "),
+              ("single",  "s "),
+              ("consume", "c "),
+              ("xfade",   "x ")
+            ]
+    for flag in flags:
+        if information[flag[0]] == "0":
+            out += "- "
+        else:
+            out += flag[1]
+    return out + "]"
 
 def parse_fmt_str(fmt_str, information):
     # format: $function{argument}
@@ -70,6 +105,7 @@ def parse_fmt_str(fmt_str, information):
     functions = {
         "": expand,
         "expand": expand,
+        "ncmpcpp_state": format_state_ncmpcpp,
         }
     for char in fmt_str:
         if not escape and char == "\\":
@@ -128,7 +164,7 @@ def main():
 
     format_str = config["format_str"]
 
-    info = extract_vars(current, state)
+    info = extract_info(current, state)
 
     mpdinfo = parse_fmt_str(format_str, info)
 

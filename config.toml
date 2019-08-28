@@ -3,7 +3,7 @@ format_str = """
 <i>$artist</i>
 <b>$elapsed/$duration</b>
 Vol: ${volume}
-$expand{state_ncmpcpp}"""
+$ncmpcpp_state{}"""
 
 [mpd]
 host="localhost"
