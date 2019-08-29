@@ -149,6 +149,8 @@ def main():
     argparser = argparse.ArgumentParser(description="Query mpd status")
     argparser.add_argument("-n", "--notify", action="store_true",
                            help="Send a desktop notification and not print to stdout")
+    argparser.add_argument("-p", "--profile", action="store",
+                           help="Specify another profile (otherwise \"default\" is used")<`0`>
 
     args = argparser.parse_args()
 
