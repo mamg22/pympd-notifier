@@ -2,6 +2,7 @@
 
 import string 
 from os.path import expanduser
+import argparse
 
 import mpd
 import notify2
@@ -49,7 +50,7 @@ def extract_info(current_song, state):
     info["duration"] = format_time(state.get("duration", ""))
 
     # Playlist status
-    info["song"] = state.get("song", "")
+    info["playlist_current"] = state.get("song", "")
     info["playlist_length"] = state.get("playlistlength", "")
 
     # Player status
@@ -144,9 +145,17 @@ def parse_fmt_str(fmt_str, information):
     return out
 
 def main():
-    # Init notifications
-    notify2.init("pympd-status")
-    notification = notify2.Notification("Python MPD notifier")
+    # Setup parser
+    argparser = argparse.ArgumentParser(description="Query mpd status")
+    argparser.add_argument("-n", "--notify", action="store_true",
+                           help="Send a desktop notification and not print to stdout")
+
+    args = argparser.parse_args()
+
+    # Init notifications if notifying
+    if args.notify:
+        notify2.init("pympd-status")
+        notification = notify2.Notification("Python MPD notifier")
 
     # Load config
     with open(expanduser("~/.config/pympd-status/config.toml")) as config_file:
@@ -169,8 +178,11 @@ def main():
     mpdinfo = parse_fmt_str(format_str, info)
 
     # Show it
-    notification.update("", mpdinfo)
-    notification.show()
+    if args.notify:
+        notification.update("", mpdinfo)
+        notification.show()
+    else:
+        print(mpdinfo)
 
 if __name__ == "__main__":
     main()
