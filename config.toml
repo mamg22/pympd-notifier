@@ -1,9 +1,14 @@
-format_str = """
+[style.default]
+format = '''
 <b>$title</b>
 <i>$artist</i>
 <b>$elapsed/$duration</b>
 Vol: ${volume}
-$ncmpcpp_state{}"""
+$ncmpcpp_state{}'''
+
+
+[style.time]
+format = "$elapsed/$duration"
 
 [mpd]
 host="localhost"

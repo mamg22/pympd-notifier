@@ -94,6 +94,9 @@ def format_state_ncmpcpp(argument, information):
             out += flag[1]
     return out + "]"
 
+def echo(argument, information):
+    return arg
+
 def parse_fmt_str(fmt_str, information):
     # format: $function{argument}
     # ${} is an alias for $expand{}
@@ -107,50 +110,73 @@ def parse_fmt_str(fmt_str, information):
         "": expand,
         "expand": expand,
         "ncmpcpp_state": format_state_ncmpcpp,
+        "echo": echo,
         }
     for char in fmt_str:
-        if not escape and char == "\\":
-            escape = True
-        elif escape and char == "\\":
-            escape = False
-            out += "\\"
-        elif mode == "normal" and char == "$":
+        if mode == "normal":
             if not escape:
-                mode = "read_name"
+                if char == "$":
+                    mode = "read_name"
+                elif char == "\\":
+                    escape = True
+                else:
+                    out += char
             else:
-                out += "$"
+                out += char
                 escape = False
         elif mode == "read_name":
-            if char in string.ascii_letters + string.digits + "_":
-                # Names are only [a-zA-Z0-9_]
-                name += char
-            elif char == "{":
-                mode = "read_arg"
+            if not escape:
+                if char in string.ascii_letters + string.digits + "_":
+                    # Names are only [a-zA-Z0-9_]
+                    name += char
+                elif char == "{":
+                    mode = "read_arg"
+                else:
+                    out += expand(name, information)
+                    if char == "\\":
+                        escape = True
+                    else:
+                        out += char
+                    name = ""
+                    mode = "normal"
             else:
                 out += expand(name, information) + char
                 name = ""
                 mode = "normal"
+
         elif mode == "read_arg":
-            if char == "}" and not escape:
-                out += functions[name](argument, information)
-                mode = "normal"
-                name = ""
-                argument = ""
+            if not escape:
+                if char == "}":
+                    out += functions[name](argument, information)
+                    mode = "normal"
+                    name = ""
+                    argument = ""
+                else:
+                    if char == "\\":
+                        escape = True
+                    else:
+                        argument += char
             else:
                 argument += char
                 escape = False
         else:
             out += char
             escape = False
+    # Expand remaining variable, if any
+    if mode == "read_name":
+        out += expand(name, information)
     return out
 
 def main():
-    # Setup parser
-    argparser = argparse.ArgumentParser(description="Query mpd status")
+    # Setup argument parser
+    argparser = argparse.ArgumentParser(description="Query MPD status and print to stdout or send in a notification")
     argparser.add_argument("-n", "--notify", action="store_true",
                            help="Send a desktop notification and not print to stdout")
-    argparser.add_argument("-p", "--profile", action="store",
-                           help="Specify another profile (otherwise \"default\" is used")<`0`>
+    argparser.add_argument("-s", "--style", action="store",
+                           help="Specify alternate style",
+                           default="default")
+    argparser.add_argument("-c", "--config", action="store",
+                           help="Specify alternate configuration file")
 
     args = argparser.parse_args()
 
@@ -160,7 +186,11 @@ def main():
         notification = notify2.Notification("Python MPD notifier")
 
     # Load config
-    with open(expanduser("~/.config/pympd-status/config.toml")) as config_file:
+    configfile = args.config
+    if configfile == None:
+        configfile = "~/.config/pympd-status/config.toml"
+
+    with open(expanduser(configfile)) as config_file:
         config = toml.load(config_file)
 
     # Connect to mpd
@@ -173,7 +203,7 @@ def main():
     current = client.currentsong()
     state = client.status()
 
-    format_str = config["format_str"]
+    format_str = config["style"][args.style]["format"]
 
     info = extract_info(current, state)
 
